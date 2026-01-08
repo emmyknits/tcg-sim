@@ -1,10 +1,12 @@
-* {
+* 
+{
   margin: 0;
   padding: 0;
   box-sizing: border-box;
 }
 
-body {
+body 
+{
   font-family: Arial, sans-serif;
   background-color: #2a2a2a;
   color: #fff;
@@ -14,51 +16,57 @@ body {
   padding: 20px;
 }
 
-.controls {
+.controls 
+{
   display: flex;
   gap: 10px;
 }
 
-.deck-info div {
+.deck-info div 
+{
   color: #ccc;
   margin: 5px 0;
 }
 
 /* Battlefield section at the top */
-.battlefield-container {
-  order: -1; /* Push to top */
+.battlefield-container 
+{
+  order: -1;
   margin-bottom: 40px;
-  flex-grow: 1;
   display: flex;
   flex-direction: column;
+  gap: 20px; /* spacing between creatures and lands */
+  height: 300px; /* total battlefield height */
 }
 
-.battlefield-container h3 {
+.battlefield-container h3 
+{
   font-size: 18px;
   margin-bottom: 15px;
   color: #aaa;
 }
 
 /* Grizzly Bears positioned above Forests */
-.grizzlies-section {
+.grizzlies-section 
+{
   display: flex;
   flex-wrap: wrap;
   gap: 12px;
-  margin-bottom: 20px;
   align-items: flex-start;
+  justify-content: center; /* center creatures horizontally */
+  height: 160px; /* reserve space for creatures */
 }
 
-.forests-section {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0;
-  align-items: flex-start;
+.forests-section 
+{
   position: relative;
-  min-height: 140px;
+  min-height: 140px; /* reserve space for lands */
+  height: 140px; /* fixed height */
 }
 
 /* Card styling - small and uniform */
-.card {
+.card 
+{
   width: 90px;
   height: 120px;
   object-fit: contain;
@@ -71,48 +79,58 @@ body {
   flex-shrink: 0;
 }
 
-.card:hover {
+.card:hover 
+{
   transform: scale(1.15);
   box-shadow: 0 4px 10px rgba(74, 144, 226, 0.8);
 }
 
+.battlefield-container .card:hover 
+{
+  transform: scale(1.05);
+}
+
 /* Forest cards are positioned by JS; ensure absolute positioning */
-.forests-section .card {
+.forests-section .card 
+{
   position: absolute;
 }
 
 /* Hand container and layout - JS will compute exact placement for fan */
-.hand-container {
+.hand-container 
+{
   margin-top: auto;
   border-top: 1px solid #444;
   padding-top: 20px;
 }
 
-.hand-container h3 {
+.hand-container h3 
+{
   font-size: 18px;
   margin-bottom: 15px;
   color: #aaa;
 }
 
 /* Hand area: we position cards absolutely and compute fan in JS */
-#hand {
+#hand 
+{
   position: relative;
   height: 260px;
   width: 100%;
   overflow: visible;
 }
 
-#hand .card {
+#hand .card 
+{
   position: absolute;
   left: 50%;
   top: 50%;
   transform-origin: bottom center;
-  transition: transform 0.25s, left 0.25s, top 0.25s;
+  transition: transform 0.18s cubic-bezier(.2,.8,.2,1);
+  pointer-events: auto;
   will-change: transform, left, top;
 }
 
-/* Hover effect for hand cards kept */
 #hand .card:hover {
-  transform: translate(-50%, 0) rotate(0deg) translateY(-30px) scale(1.35) !important;
-  z-index: 9999 !important;
+  /* handled by JS */
 }

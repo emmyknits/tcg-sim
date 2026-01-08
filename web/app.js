@@ -3,10 +3,13 @@ let simulationResults = null;
 
 async function fetchState()
 {
-    try {
+    try 
+    {
         const res = await fetch(`${API_PREFIX}/state`);
         return res.json();
-    } catch (e) {
+    } 
+    catch (e) 
+    {
         console.error("Failed to fetch state:", e);
         return null;
     }
@@ -14,7 +17,8 @@ async function fetchState()
 
 async function doStep(command)
 {
-    try {
+    try 
+    {
         let endpoint = '';
         switch(command) {
             case 'step':
@@ -49,47 +53,59 @@ async function doStep(command)
         const response = await fetch(`${API_PREFIX}${endpoint}`, { method: "POST" });
         const newState = await response.json();
         updateDisplay(newState);
-    } catch (e) {
+    } 
+    catch (e) 
+    {
         console.error("Error during command:", e);
     }
 }
 
 async function restart()
 {
-    try {
+    try 
+    {
         const response = await fetch(`${API_PREFIX}/restart`, { method: "POST" });
         const newState = await response.json();
         updateDisplay(newState);
         simulationResults = null;
         updateDeckInfo();
-    } catch (e) {
+    } 
+    catch (e) 
+    {
         console.error("Error restarting:", e);
     }
 }
 
 async function step()
 {
-    try {
+    try 
+    {
         const response = await fetch(`${API_PREFIX}/step`, { method: "POST" });
         const newState = await response.json();
         
         // Immediately update the display with the new state
         updateDisplay(newState);
-    } catch (e) {
+    } 
+    catch (e) 
+    {
         console.error("Error during step:", e);
     }
 }
 
 async function stopServer()
 {
-    try {
+    try 
+    {
         await fetch(`${API_PREFIX}/shutdown`, { method: "POST" });
         // Give the server a moment to respond before closing
-        setTimeout(() => {
+        setTimeout(() => 
+        {
             alert("Server is shutting down. You can close this tab.");
             window.close();
         }, 100);
-    } catch (e) {
+    } 
+    catch (e) 
+    {
         console.error("Error shutting down server:", e);
         alert("Error shutting down server");
     }
@@ -97,7 +113,8 @@ async function stopServer()
 
 function formatPhase(phase) {
     // Convert GameStep enum to readable text
-    const phaseNames = {
+    const phaseNames = 
+    {
         "StartTurn": "Start Turn",
         "Upkeep": "Upkeep",
         "Draw": "Draw",
@@ -114,10 +131,13 @@ function updateDeckInfo()
     const deckComp = document.getElementById("deck-composition");
     const results = document.getElementById("results");
     
-    if (simulationResults) {
+    if (simulationResults) 
+    {
         deckComp.textContent = `Deck: 29 Forests, 31 Grizzly Bears`;
         results.textContent = `Results: Avg ${simulationResults.avg_turns.toFixed(2)} turns over ${simulationResults.total_games} games`;
-    } else {
+    } 
+    else 
+    {
         deckComp.textContent = `Deck: 29 Forests, 31 Grizzly Bears`;
         results.textContent = `Results: No simulation data yet`;
     }
@@ -125,7 +145,10 @@ function updateDeckInfo()
 
 function updateDisplay(state)
 {
-    if (!state) return;
+    if (!state) 
+    {
+        return;
+    }
 
     // Update phase, life, and turns
     const phaseElement = document.getElementById("phase");
@@ -140,6 +163,11 @@ function updateDisplay(state)
     const hand = document.getElementById("hand");
     hand.innerHTML = "";
     const handCards = state.zones.Hand || [];
+
+    const library = document.getElementById("library");
+    library.innerHTML = "";
+    const libraryCards = state.zones.Library || [];
+
     const CARD_W = 90;
     const CARD_H = 120;
     const MAX_PER_CARD_ANGLE = 18; // degrees per card before capping
@@ -163,9 +191,17 @@ function updateDisplay(state)
     // tapped state -> rotate additional 90deg to the right
     function cardIsTapped(card) 
     {
-        if (!card || !card.fragments) return false;
+        if (!card || !card.fragments) 
+        {
+            return false;
+        }
+
         const f = card.fragments.Tappable;
-        if (!f) return false;
+        if (!f) 
+        {
+            return false;
+        }
+
         if (typeof f.tapped === 'boolean') return f.tapped;
         if (f.Tappable && typeof f.Tappable.tapped === 'boolean') return f.Tappable.tapped;
         return false;
@@ -190,13 +226,53 @@ function updateDisplay(state)
         const finalAngle = angle + (isTapped ? 90 : 0);
 
         // transform: center the card then offset and rotate
-        img.style.transform = `translate(-50%, -40%) translateX(${x}px) rotate(${finalAngle}deg) translateY(${y}px)`;
+        const baseTransform = `translate(-50%, -40%) translateX(${x}px) rotate(${finalAngle}deg) translateY(${y}px)`;
+
+        img.style.transform = baseTransform;
+        img.dataset.baseTransform = baseTransform;
+
+        img.addEventListener("mouseenter", () => {
+            img.style.zIndex = "9999";
+            img.style.transform =
+                `${img.dataset.baseTransform} scale(1.35) translateY(-30px)`;
+        });
+
+        img.addEventListener("mouseleave", () => {
+            img.style.zIndex = `${i * 10}`;
+            img.style.transform = img.dataset.baseTransform;
+        });
+
         img.style.zIndex = `${(i * 10)}`;
 
         // debug: store shift/angle for inspection in devtools
         img.dataset.fan = JSON.stringify({ i, angle, x, y, shift });
 
         hand.appendChild(img);
+    });
+
+    libraryCards.forEach((card, i) => 
+    {
+        const img = document.createElement("img");
+        img.src = `/cards/back.jpg`;
+        img.className = "card back";
+        img.alt = "card back";
+        img.style.width = `${CARD_W}px`;
+        img.style.height = `${CARD_H}px`;
+        img.style.position = 'absolute';
+
+        const containerH = library.clientHeight || 600;
+        const overlapW = CARD_W * 0.005;
+        const overlapH = CARD_H * 0.005;
+        const totalHeight = CARD_H - ((libraryCards.length - 1) * overlapH);
+        const startX = 50;
+        const starty = ((containerH - totalHeight) / 2) + (library.clientTop || 300);
+        const left = startX + i * overlapW;
+        const top = starty + (libraryCards.length - i) * overlapH;
+        img.style.left = `${left}px`;
+        img.style.top = `${top}px`;
+        img.style.zIndex = `${i}`;
+
+        library.appendChild(img);
     });
 
     // Render battlefield: separate Grizzly Bears and Forests
@@ -212,17 +288,20 @@ function updateDisplay(state)
     forestsContainer.innerHTML = "";
 
     // Render Grizzly Bears
-    grizzlies.forEach(card => {
+    grizzlies.forEach(card => 
+    {
         const img = document.createElement("img");
         img.src = `/cards/${encodeURIComponent(card.name)}.jpg`;
         img.className = "card";
         img.alt = card.name;
         
         const isTapped = cardIsTapped(card);
-        if (isTapped) {
+        if (isTapped) 
+        {
             img.style.transform = `rotate(90deg)`;
         }
-        else{
+        else
+        {
             img.style.transform = `rotate(0deg)`;
         }
 
@@ -230,17 +309,14 @@ function updateDisplay(state)
     });
 
     // Render forests with slight horizontal offsets so all are visible (no hiding)
-    forests.forEach((card, i) => {
+    forests.forEach((card, i) => 
+    {
         const img = document.createElement("img");
         img.src = `/cards/${encodeURIComponent(card.name)}.jpg`;
         img.className = "card";
         img.alt = card.name;
-        img.style.width = `90px`;
-        img.style.height = `120px`;
-        img.style.position = 'absolute';
 
         const containerW = forestsContainer.clientWidth || 600;
-        const CARD_W = 90;
         const overlap = CARD_W * 0.18; // how much to slide each subsequent forest
         const totalWidth = (forests.length - 1) * overlap + CARD_W;
         const startX = (containerW - totalWidth) / 2;
@@ -250,10 +326,12 @@ function updateDisplay(state)
         img.style.zIndex = `${i}`;
 
         const isTapped = cardIsTapped(card);
-        if (isTapped) {
+        if (isTapped) 
+        {
             img.style.transform = `rotate(90deg)`;
         }
-        else{
+        else
+        {
             img.style.transform = `rotate(0deg)`;
         }
 
@@ -261,11 +339,13 @@ function updateDisplay(state)
     });
 
     // If the game reached GameOver, auto-restart to next game after short delay
-    if (state.step === "GameOver") {
-        setTimeout(() => {
+    if (state.step === "GameOver") 
+    {
+        setTimeout(() => 
+        {
             // Restart engine to next game
             restart();
-        }, 300);
+        }, 3000);
     }
 }
 
