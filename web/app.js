@@ -150,23 +150,32 @@ function updateDisplay(state)
         return;
     }
 
-    // Update phase, life, and turns
+    // Update phase, current player, and turns
     const phaseElement = document.getElementById("phase");
-    const lifeElement = document.getElementById("life");
+    const currentPlayerElement = document.getElementById("currentPlayer");
+    const playersHealthElement = document.getElementById("playersHealth");
     const turnsElement = document.getElementById("turns");
     
     phaseElement.textContent = formatPhase(state.step);
-    lifeElement.textContent = state.life;
+    currentPlayerElement.textContent = state.current_player_index;
     turnsElement.textContent = state.turns;
+    
+    // Display all players' health
+    if (state.players && state.players.length > 0) {
+        const healthText = state.players.map((p, i) => 
+            `Player ${i}: ${p.life} HP ${i === state.current_player_index ? '(current)' : ''}`
+        ).join(' | ');
+        playersHealthElement.textContent = healthText;
+    }
 
-    // Render hand with dynamic fan layout (no hidden cards)
+    // Render current player's zones
     const hand = document.getElementById("hand");
     hand.innerHTML = "";
-    const handCards = state.zones.Hand || [];
+    const handCards = state.players[state.current_player_index].zones.Hand || [];
 
     const library = document.getElementById("library");
     // Render library cards
-    const libraryCards = state.zones.Library || [];
+    const libraryCards = state.players[state.current_player_index].zones.Library || [];
     library.innerHTML = "";
 
     const LIB_CARD_W = 90;
@@ -266,7 +275,7 @@ function updateDisplay(state)
     });
 
     // Render battlefield: separate Grizzly Bears and Forests
-    const bfCards = state.zones.Battlefield || [];
+    const bfCards = state.players[state.current_player_index].zones.Battlefield || [];
     
     const grizzlies = bfCards.filter(c => c.name === "Grizzly Bears");
     const forests = bfCards.filter(c => c.name === "Forest");
