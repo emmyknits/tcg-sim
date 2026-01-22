@@ -166,11 +166,14 @@ function cardIsTapped(card)
 function renderPlayerZones(player, playerIndex, isCurrentPlayer)
 {
     const container = document.createElement("div");
-    container.className = `player-section ${isCurrentPlayer ? 'current-player' : ''}`;
+    container.className = `player-section ${isCurrentPlayer ? 'player-section-current' : 'player-section-other'}`;
     
     const title = document.createElement("h2");
-    title.textContent = `Player ${playerIndex}${isCurrentPlayer ? ' (Current)' : ''} - ${player.life} HP`;
-    container.className += isCurrentPlayer ? ' player-section-current' : ' player-section-other';
+    title.textContent = `Player ${playerIndex}${isCurrentPlayer ? ' (Current)' : ''} - ${player.life} Life`;
+    if (!isCurrentPlayer) {
+        title.style.transform = 'rotate(180deg)';
+        title.style.transformOrigin = 'center';
+    }
     container.appendChild(title);
 
     // Battlefield
@@ -179,6 +182,8 @@ function renderPlayerZones(player, playerIndex, isCurrentPlayer)
     
     const battlefieldTitle = document.createElement("h3");
     battlefieldTitle.textContent = "Battlefield";
+    // Keep battlefield title upright for inactive player
+    if (!isCurrentPlayer) battlefieldTitle.style.transform = 'rotate(180deg)';
     battlefieldDiv.appendChild(battlefieldTitle);
     
     const bfCards = player.zones.Battlefield || [];
@@ -187,7 +192,7 @@ function renderPlayerZones(player, playerIndex, isCurrentPlayer)
 
     const grizzliesContainer = document.createElement("div");
     grizzliesContainer.className = "grizzlies-section";
-    grizzlies.forEach(card => 
+    grizzlies.forEach((card, gi) => 
     {
         const img = document.createElement("img");
         img.src = `/cards/${encodeURIComponent(card.name)}.jpg`;
@@ -196,8 +201,26 @@ function renderPlayerZones(player, playerIndex, isCurrentPlayer)
         
         if (cardIsTapped(card)) 
         {
-            img.style.transform = `rotate(90deg)`;
+            img.style.transform = `translateX(300%) translateY(70%) rotate(90deg) translateX(-10px)` + (isCurrentPlayer ? '' : ' rotate(180deg)');
+        } else if (!isCurrentPlayer) {
+            // ensure grizzly is upright for inactive player
+            img.style.transform = `translateX(300%) translateY(70%) rotate(180deg)`;
+        } else {
+            // active untapped grizzly: set inline transform explicitly to avoid CSS matrix issues
+            img.style.transform = `translateX(300%) translateY(70%)`;
         }
+
+        img.style.transformOrigin = 'center';
+        // save base transform and add hover handlers to preserve position when scaling
+        img.dataset.baseTransform = img.style.transform;
+        img.addEventListener('mouseenter', () => {
+            img.style.zIndex = '9999';
+            img.style.transform = `${img.dataset.baseTransform} scale(1.15)`;
+        });
+        img.addEventListener('mouseleave', () => {
+            img.style.zIndex = `${gi}`;
+            img.style.transform = img.dataset.baseTransform;
+        });
 
         grizzliesContainer.appendChild(img);
     });
@@ -205,41 +228,92 @@ function renderPlayerZones(player, playerIndex, isCurrentPlayer)
 
     const forestsContainer = document.createElement("div");
     forestsContainer.className = "forests-section";
-    forests.forEach((card, i) => 
+
+    // Group untapped forests with horizontal overlap and stack tapped forests to save room
+    const untappedForests = forests.filter(f => !cardIsTapped(f));
+    const tappedForests = forests.filter(f => cardIsTapped(f));
+
     {
-        const img = document.createElement("img");
-        img.src = `/cards/${encodeURIComponent(card.name)}.jpg`;
-        img.className = "card";
-        img.alt = card.name;
+    const CARD_W = 70;
+    const containerW = 450;
+    const overlap = CARD_W * 0.35;
 
-        const CARD_W = 90;
-        const containerW = 800; // Estimate for forests section
-        const overlap = CARD_W * 0.18;
-        const totalWidth = (forests.length - 1) * overlap + CARD_W;
+    // Untapped group (left side)
+    if (untappedForests.length > 0) {
+        const totalWidth = (untappedForests.length - 1) * overlap + CARD_W;
         const startX = (containerW - totalWidth) / 2;
-        const left = startX + i * overlap;
-        img.style.left = `${left}px`;
-        img.style.top = `10px`;
-        img.style.zIndex = `${i}`;
+        untappedForests.forEach((card, i) => {
+            const img = document.createElement("img");
+            img.src = `/cards/${encodeURIComponent(card.name)}.jpg`;
+            img.className = "card";
+            img.alt = card.name;
 
-        if (cardIsTapped(card)) 
-        {
-            img.style.transform = `rotate(90deg)`;
-        }
+            const left = startX + i * overlap;
+            img.style.left = `${left}px`;
+            img.style.top = `10px`;
+            img.style.zIndex = `${i}`;
 
-        forestsContainer.appendChild(img);
-    });
+            // Keep untapped orientation upright; if inactive player, counter-rotate children
+            img.style.transform = (isCurrentPlayer ? `translate(${left}px, ${10}px)` : `translate(${left}px, ${10}px) rotate(180deg)`);
+            img.style.transformOrigin = 'center';
+
+            // hover handlers
+            img.dataset.baseTransform = img.style.transform;
+            img.addEventListener('mouseenter', () => {
+                img.style.zIndex = '9999';
+                img.style.transform = `${img.dataset.baseTransform} scale(1.15)`;
+            });
+            img.addEventListener('mouseleave', () => {
+                img.style.zIndex = `${i}`;
+                img.style.transform = img.dataset.baseTransform;
+            });
+
+            forestsContainer.appendChild(img);
+        });
+    }
+
+    // Tapped stack (right side of forest group) - stacked overlap to save horizontal space
+    if (tappedForests.length > 0) {
+        const stackXBase = untappedForests.length > 0 ? ( (containerW + ((untappedForests.length - 1) * overlap + CARD_W)) / 2 + 8 ) : (containerW / 2 - CARD_W / 2);
+        tappedForests.forEach((card, i) => {
+            const img = document.createElement("img");
+            img.src = `/cards/${encodeURIComponent(card.name)}.jpg`;
+            img.className = "card";
+            img.alt = card.name;
+
+            // small horizontal offset between stacked tapped cards
+            const left = stackXBase + i * 6;
+            const top = 10 + i * 6; // slight vertical offset to show stack
+            img.style.left = `${left}px`;
+            img.style.top = `${top}px`;
+            img.style.zIndex = `${i + 100}`;
+
+            // tapped: rotate 90deg for tapped orientation; if inactive player also add 180deg
+            img.style.transform = (isCurrentPlayer ? `translate(${left}px, ${top}px) rotate(90deg)` : `translate(${left}px, ${top}px) rotate(90deg) rotate(180deg)`);
+            img.style.transformOrigin = 'center';
+
+            // base transform & hover handlers for tapped stack
+            img.dataset.baseTransform = img.style.transform;
+            img.addEventListener('mouseenter', () => {
+                img.style.zIndex = '9999';
+                img.style.transform = `${img.dataset.baseTransform} scale(1.15)`;
+            });
+            img.addEventListener('mouseleave', () => {
+                img.style.zIndex = `${i + 100}`;
+                img.style.transform = img.dataset.baseTransform;
+            });
+
+            forestsContainer.appendChild(img);
+        });
+    }
     battlefieldDiv.appendChild(forestsContainer);
+    }
     
     container.appendChild(battlefieldDiv);
 
     // Hand & Library
     const handLibraryDiv = document.createElement("div");
     handLibraryDiv.className = "player-hand-library";
-
-    const handLibTitle = document.createElement("h3");
-    handLibTitle.textContent = "Hand & Library";
-    handLibraryDiv.appendChild(handLibTitle);
 
     const handLibContent = document.createElement("div");
     handLibContent.className = "hand-library-content";
@@ -249,8 +323,8 @@ function renderPlayerZones(player, playerIndex, isCurrentPlayer)
     libraryDiv.className = "library-section";
     const libraryCards = player.zones.Library || [];
     
-    const LIB_CARD_W = 90;
-    const LIB_CARD_H = 120;
+    const LIB_CARD_W = 60;
+    const LIB_CARD_H = 80;
     const overlapW = LIB_CARD_W * 0.003;
     const overlapH = LIB_CARD_H * 0.003;
 
@@ -270,12 +344,24 @@ function renderPlayerZones(player, playerIndex, isCurrentPlayer)
         img.style.left = `${left}px`;
         img.style.zIndex = `${i}`;
         
+        img.style.transformOrigin = 'center';
+        img.dataset.baseTransform = img.style.transform || '';
+        img.addEventListener('mouseenter', () => {
+            img.style.zIndex = '9999';
+            img.style.transform = `${img.dataset.baseTransform} scale(1.15)`.trim();
+        });
+        img.addEventListener('mouseleave', () => {
+            img.style.zIndex = `${i}`;
+            img.style.transform = img.dataset.baseTransform;
+        });
+        
         libraryDiv.appendChild(img);
     });
     
     const libLabel = document.createElement("p");
     libLabel.className = "zone-label";
     libLabel.textContent = `Library (${libraryCards.length})`;
+    if (!isCurrentPlayer) libLabel.style.transform = 'rotate(180deg)';
     libraryDiv.appendChild(libLabel);
     handLibContent.appendChild(libraryDiv);
 
@@ -284,26 +370,27 @@ function renderPlayerZones(player, playerIndex, isCurrentPlayer)
     handDiv.className = "hand-section";
     const handCards = player.zones.Hand || [];
 
-    const CARD_W = 90;
-    const CARD_H = 120;
-    const MAX_PER_CARD_ANGLE = 18;
-    const MAX_SPAN = 90;
+    const CARD_W = 60;
+    const CARD_H = 80;
+    const MAX_PER_CARD_ANGLE = 12;
+    const MAX_SPAN = 60;
     const n = handCards.length;
     const span = n > 1 ? Math.min(MAX_SPAN, (n - 1) * MAX_PER_CARD_ANGLE) : 0;
     const step = n > 1 ? span / (n - 1) : 0;
     const centerIndex = (n - 1) / 2;
 
-    const containerW = 600;
-    const baseShift = CARD_W * 0.45;
+    const containerW = 400;
+    const baseShift = CARD_W * 0.35;
     const MIN_OVERLAP = 0.10;
     const maxShiftOverlap = CARD_W * (1 - MIN_OVERLAP);
-    const maxShiftContainer = n > 1 ? Math.max((containerW * 0.9 - CARD_W) / (n - 1), 10) : baseShift;
+    const maxShiftContainer = n > 1 ? Math.max((containerW * 0.8 - CARD_W) / (n - 1), 8) : baseShift;
     const shift = Math.min(baseShift, maxShiftOverlap, maxShiftContainer);
 
     handCards.forEach((card, i) => 
     {
         const img = document.createElement("img");
-        img.src = `/cards/${encodeURIComponent(card.name)}.jpg`;
+            // Use back of card for inactive player's hand
+            img.src = isCurrentPlayer ? `/cards/${encodeURIComponent(card.name)}.jpg` : `/cards/back.jpg`;
         img.className = "card";
         img.alt = card.name;
         img.style.width = `${CARD_W}px`;
@@ -311,15 +398,19 @@ function renderPlayerZones(player, playerIndex, isCurrentPlayer)
 
         const angle = n > 1 ? -span / 2 + i * step : 0;
         const x = (i - centerIndex) * shift;
-        const y = span > 0 ? (Math.abs(angle) / (span / 2 || 1)) * 40 : 0;
-        const finalAngle = angle + (cardIsTapped(card) ? 90 : 0);
+        const y = span > 0 ? (Math.abs(angle) / (span / 2 || 1)) * 30 : 0;
+            // If this is the inactive player their zone is rotated 180deg overall,
+            // so add an extra 180deg to card rotation to keep the card visually upright.
+            const tappedAngle = cardIsTapped(card) ? 90 : 0;
+            const finalAngle = angle + tappedAngle + (isCurrentPlayer ? 0 : 180);
 
         img.style.transform = `translate(-50%, -50%) translateX(${x}px) rotate(${finalAngle}deg) translateY(${y}px)`;
+        img.style.transformOrigin = 'center';
         img.dataset.baseTransform = img.style.transform;
 
         img.addEventListener("mouseenter", () => {
             img.style.zIndex = "9999";
-            img.style.transform = `${img.dataset.baseTransform} scale(1.35) translateY(-30px)`;
+            img.style.transform = `${img.dataset.baseTransform} scale(1.2)`;
         });
         img.addEventListener("mouseleave", () => {
             img.style.zIndex = `${i * 10}`;
@@ -333,6 +424,7 @@ function renderPlayerZones(player, playerIndex, isCurrentPlayer)
     const handLabel = document.createElement("p");
     handLabel.className = "zone-label";
     handLabel.textContent = `Hand (${handCards.length})`;
+    if (!isCurrentPlayer) handLabel.style.transform = 'rotate(180deg)';
     handDiv.appendChild(handLabel);
     handLibContent.appendChild(handDiv);
 
@@ -362,20 +454,57 @@ function updateDisplay(state)
     // Display all players' health
     if (state.players && state.players.length > 0) {
         const healthText = state.players.map((p, i) => 
-            `Player ${i}: ${p.life} HP ${i === state.current_player_index ? '(current)' : ''}`
+            `Player ${i}: ${p.life} Life ${i === state.current_player_index ? '(current)' : ''}`
         ).join(' | ');
         playersHealthElement.textContent = healthText;
     }
 
-    // Render all players' zones
+    // Render all players' zones in circular wedge arrangement
     const playersContainer = document.getElementById("players-container");
+    
+    // Rotate the entire container based on current player
+    // For 2 players: container at 0° when Player 0 active, 180° when Player 1 active
+    const playerCount = state.players ? state.players.length : 1;
+    const rotationPerPlayer = 360 / playerCount;
+    const containerRotation = state.current_player_index * rotationPerPlayer;
+    
+    // Apply smooth rotation transition to the container
+    playersContainer.style.transition = "transform 0.6s ease-in-out";
+    playersContainer.style.transform = `rotate(${containerRotation}deg)`;
+    
     playersContainer.innerHTML = "";
     
     if (state.players && state.players.length > 0) {
         state.players.forEach((player, index) => {
             const isCurrentPlayer = index === state.current_player_index;
+            
+            // Create wrapper for positioning in the wedge
+            const wrapper = document.createElement("div");
+            wrapper.className = "player-wrapper";
+            wrapper.setAttribute("data-player-index", index);
+            
+            // Create the player section
             const playerDiv = renderPlayerZones(player, index, isCurrentPlayer);
-            playersContainer.appendChild(playerDiv);
+            
+            // Counter-rotate player content to maintain correct orientation
+            // Active player should always be right-side up (0°)
+            // Inactive player zones should be rotationally symmetric (180°)
+            // but cards and text inside should be kept right-side up by adding
+            // a 180° rotation on the children where needed.
+            let playerContentTransform;
+            if (isCurrentPlayer) {
+                // Active: keep right-side up by counter-rotating the container rotation
+                playerContentTransform = `rotate(${-containerRotation}deg)`;
+            } else {
+                // Inactive: rotate zones 180° for symmetry
+                playerContentTransform = `rotate(${180 - containerRotation}deg)`;
+            }
+            
+            playerDiv.style.transform = playerContentTransform;
+            playerDiv.style.transition = "transform 0.6s ease-in-out";
+            
+            wrapper.appendChild(playerDiv);
+            playersContainer.appendChild(wrapper);
         });
     }
 
